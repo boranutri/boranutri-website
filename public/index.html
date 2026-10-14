@@ -1,0 +1,209 @@
+<!DOCTYPE html>
+<html lang="pt-BR"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>BORANutri</title>
+<style>
+:root{--bg:#f6f5f1;--card:#fff;--tx:#1d2b24;--mu:#6b7770;--ac:#2f7d5b;--ac2:#e6f2ec;--bd:#dcded8;--wa:#b4531a;box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}
+@media(prefers-color-scheme:dark){:root:not([data-theme="light"]){--bg:#141a17;--card:#1d2621;--tx:#e8eee9;--mu:#98a59d;--ac:#5cc596;--ac2:#23352c;--bd:#2f3c35;--wa:#e8924f}}
+:root[data-theme="dark"]{--bg:#141a17;--card:#1d2621;--tx:#e8eee9;--mu:#98a59d;--ac:#5cc596;--ac2:#23352c;--bd:#2f3c35;--wa:#e8924f}
+html{scroll-padding-top:env(safe-area-inset-top,0px)}
+*{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--tx);font:15px/1.45 system-ui,-apple-system,"Segoe UI",sans-serif}
+header{padding:14px 16px 4px;max-width:900px;margin:auto}h1{font-size:20px;margin:0}
+nav{display:flex;gap:6px;overflow-x:auto;padding:8px 16px;max-width:900px;margin:auto}
+nav button{flex:none;border:1px solid var(--bd);background:var(--card);color:var(--tx);padding:7px 12px;border-radius:20px;cursor:pointer;font:inherit}
+nav button.on{background:var(--ac);color:#fff;border-color:var(--ac)}
+main{max-width:900px;margin:auto;padding:8px 16px 60px}
+.c{background:var(--card);border:1px solid var(--bd);border-radius:12px;padding:14px;margin-bottom:12px}
+.c h2{font-size:16px;margin:0 0 8px}.g{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:10px}
+label{display:block;font-size:12px;color:var(--mu)}input,select,textarea{width:100%;padding:8px;border:1px solid var(--bd);border-radius:8px;background:var(--bg);color:var(--tx);font:inherit}
+button.b{background:var(--ac);color:#fff;border:0;border-radius:8px;padding:9px 14px;cursor:pointer;font:inherit}button.s{background:none;border:1px solid var(--bd);color:var(--tx);border-radius:8px;padding:6px 10px;cursor:pointer}
+.mu{color:var(--mu);font-size:13px}.wa{color:var(--wa);font-size:13px}.big{font-size:22px;font-weight:600}
+table{width:100%;border-collapse:collapse;font-size:14px}td,th{padding:6px 4px;border-bottom:1px solid var(--bd);text-align:left}th{color:var(--mu);font-weight:500;font-size:12px}td.r,th.r{text-align:right}
+.bar{height:8px;background:var(--ac2);border-radius:6px;overflow:hidden}.bar i{display:block;height:100%;background:var(--ac)}
+details{border-top:1px solid var(--bd);padding:6px 0}summary{cursor:pointer}.tw{overflow-x:auto}.row{display:flex;gap:8px;align-items:end;flex-wrap:wrap}.row>*{flex:1 1 120px}
+</style></head><body>
+<header><h1>🥗 NutriPessoal</h1><div class="mu">Uso pessoal · dados guardados só neste aparelho</div></header>
+<nav id="nav"></nav><main id="app"></main>
+<script>
+const LS='nutri_v1',K=['k','p','c','fi','g','na','ca','kk','vc','co'];
+let S={prof:{sexo:'F',eq:'F',nasc:'',alt:'',peso:'',naf:'1.55',obj:'Emagrecimento',adj:null,prot:null,fat:null,vetc:''},hist:[],diary:[],body:[],custom:[],goalOv:{}};
+try{const x=JSON.parse(localStorage.getItem(LS)||'null');if(x)S=Object.assign(S,x)}catch(e){}
+const sv=()=>{try{localStorage.setItem(LS,JSON.stringify(S))}catch(e){}};
+const $=id=>document.getElementById(id),esc=s=>String(s??'').replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+const n=(v,d=1)=>(+v||0).toLocaleString('pt-BR',{minimumFractionDigits:d,maximumFractionDigits:d});
+const today=()=>{const d=new Date();return new Date(d-d.getTimezoneOffset()*6e4).toISOString().slice(0,10)};
+let tab='aval',view='ref',date=today(),fq='';
+/* ---------- tabelas de referência (editáveis no código) ---------- */
+const NAF=[['Sedentário',1.2],['Pouco ativo (leve)',1.375],['Ativo (moderado)',1.55],['Muito ativo',1.725],['Extremamente ativo',1.9]];
+// [ajuste %, proteína g/kg, gordura % do VET, justificativa]
+const OBJ={'Ganho de massa':[15,1.8,25,'Superávit moderado para sustentar a síntese muscular com pouco ganho de gordura.'],
+'Hipertrofia':[10,2.0,25,'Superávit pequeno e proteína elevada para favorecer a hipertrofia.'],
+'Ganho de massa + definição':[5,2.2,25,'Superávit mínimo e proteína alta: recomposição corporal.'],
+'Manutenção de peso':[0,1.2,28,'VET igual ao GET para manter o peso atual.'],
+'Manutenção calórica + aumento de proteína':[0,2.0,25,'Calorias de manutenção, proteína aumentada para saciedade e massa magra.'],
+'Aumento de proteínas':[0,2.0,25,'Sem alterar calorias; foco em elevar a ingestão proteica.'],
+'Déficit pequeno + preservação de massa muscular':[-10,2.2,25,'Déficit leve com proteína alta para preservar massa magra.'],
+'Definição':[-10,2.2,25,'Déficit leve e proteína alta para reduzir gordura mantendo massa muscular.'],
+'Definição + emagrecimento':[-20,2.4,25,'Déficit moderado com proteína alta para perder gordura sem perder músculo.'],
+'Emagrecimento':[-20,1.6,25,'Déficit moderado, em geral sustentável para perda de peso gradual.'],
+'Déficit calórico':[-15,1.6,25,'Déficit intermediário para perda de peso mais lenta.']};
+// FAO/WHO/UNU (2004): [idade máx, coef. peso, constante]
+const FAO={M:[[30,15.057,692.2],[60,11.472,873.1],[999,11.711,587.7]],F:[[30,14.818,486.6],[60,8.126,845.6],[999,9.082,658.5]]};
+const IMC=[[18.5,'Baixo peso'],[25,'Eutrofia (peso adequado)'],[30,'Sobrepeso'],[35,'Obesidade grau I'],[40,'Obesidade grau II'],[999,'Obesidade grau III']];
+/* ---------- banco de alimentos (valores por 100 g, de memória; conferir na TACO) ---------- */
+const SEEDRAW=[
+['Arroz branco','cozido',128,2.5,28.1,1.6,0.2,0,1,[['colher de sopa cheia',25],['escumadeira',90]]],
+['Arroz branco','cru',358,7.2,78.8,1.6,0.3,0,1,[['colher de sopa',20],['xícara',160]]],
+['Arroz integral','cozido',124,2.6,25.8,2.7,1.0,0,1,[['colher de sopa cheia',25]]],
+['Feijão carioca','cozido',76,4.8,13.6,8.5,0.5,0,1,[['colher de sopa',25],['concha média',100]]],
+['Feijão preto','cozido',77,4.5,14.0,8.4,0.5,0,1,[['colher de sopa',25],['concha média',100]]],
+['Macarrão de trigo','cozido',102,3.4,19.9,1.2,0.5,0,1,[['colher de sopa cheia',25],['pegador',110]]],
+['Batata inglesa','cozida',52,1.2,11.9,1.3,0,0,1,[['unidade média',130],['colher de sopa',25]]],
+['Batata-doce','cozida',77,0.6,18.4,2.2,0.1,0,1,[['unidade média',120]]],
+['Mandioca (aipim)','cozida',125,0.6,30.1,1.6,0.3,0,1,[['colher de sopa',30]]],
+['Peito de frango','grelhado',159,32.0,0,0,2.5,[50,5,330,0,89],1,[['filé pequeno',80],['filé médio',120]]],
+['Patinho bovino','grelhado',219,35.9,0,0,7.3,0,1,[['bife médio',100]]],
+['Carne moída','refogada',212,26.7,0,0,10.9,0,1,[['colher de sopa',25]]],
+['Ovo de galinha','cozido',146,13.3,0.6,0,9.5,[146,49,140,0,397],1.1,[['unidade',50]]],
+['Leite de vaca integral','pronto',61,3.2,4.7,0,3.3,[40,123,140,1,14],1,[['copo (200 ml)',200],['colher de sopa',15]]],
+['Leite de vaca desnatado','pronto',35,3.4,4.9,0,0.1,[50,134,170,1,2],1,[['copo (220 ml)',220]]],
+['Iogurte natural desnatado','pronto',41,3.8,5.8,0,0.3,0,1,[['pote',170]]],
+['Queijo minas frescal','pronto',264,17.4,3.2,0,20.2,0,1,[['fatia média',30]]],
+['Queijo muçarela','pronto',330,22.6,3.0,0,25.2,0,1,[['fatia média',20]]],
+['Ricota','pronto',140,12.6,3.8,0,8.1,0,1,[['fatia grossa',40]]],
+['Pão francês','pronto',300,8.0,58.6,2.3,3.1,0,1,[['unidade',50]]],
+['Pão de forma integral','pronto',253,9.4,49.9,6.9,3.7,0,1,[['fatia',25]]],
+['Aveia em flocos','crua',394,13.9,66.6,9.1,8.5,0,1,[['colher de sopa cheia',15]]],
+['Banana prata','crua (sem casca)',98,1.3,26.0,2.0,0.1,[0,8,358,21.6,0],1.5,[['unidade média',60],['½ unidade',30]]],
+['Maçã','crua',56,0.3,15.2,1.3,0,0,1.1,[['unidade pequena',130]]],
+['Laranja','crua',37,1.0,8.9,0.8,0.1,[0,22,163,53.7,0],1.5,[['unidade média',130]]],
+['Mamão papaia','cru',40,0.5,10.4,1.0,0.1,0,1.6,[['fatia fina',90]]],
+['Manga','crua',72,0.4,19.4,1.6,0.2,0,1.7,[['unidade pequena',150]]],
+['Abacate','cru',96,1.2,6.0,6.3,8.4,0,1.4,[['colher de sopa',30]]],
+['Morango','cru',30,0.9,6.8,1.7,0.3,0,1,[['unidade grande',12]]],
+['Alface crespa','crua',11,1.3,1.7,1.8,0.2,0,1,[['folha',10]]],
+['Tomate','cru',15,1.1,3.1,1.2,0.2,[1,7,222,21.2,0],1,[['unidade média',100]]],
+['Cenoura','cozida',30,0.8,6.7,2.6,0.2,0,1,[['colher de sopa cheia',15]]],
+['Brócolis','cozido',25,2.1,4.4,3.4,0.5,0,1,[['colher de sopa cheia',10]]],
+['Azeite de oliva','pronto',884,0,0,0,100,0,1,[['colher de sobremesa',8],['colher de sopa',13]]],
+['Açúcar refinado','pronto',387,0.3,99.5,0,0,0,1,[['colher de sopa cheia',20]]],
+['Mel','pronto',309,0.4,84.0,0,0,0,1,[['colher de sopa',20]]],
+['Amendoim','torrado',606,22.5,18.7,7.8,54.0,0,1,[['colher de sopa',12]]],
+['Castanha-do-pará','crua',643,14.5,15.1,7.9,63.5,0,1,[['unidade',4]]]];
+const SEED=SEEDRAW.map((r,i)=>{const m=r[7]||[null,null,null,null,null];return{id:'t'+i,n:r[0],st:r[1],k:r[2],p:r[3],c:r[4],fi:r[5],g:r[6],na:m[0],ca:m[1],kk:m[2],vc:m[3],co:m[4],fc:r[8],m:r[9].map(x=>({n:x[0],g:x[1]})),src:'TACO (digitado de memória — conferir)',dt:'2026-10-13',oficial:1}});
+const foods=()=>SEED.concat(S.custom);const food=id=>foods().find(f=>f.id===id);
+const lab=f=>f.n+' — '+f.st+(f.oficial?'':' ★');
+const nut=(f,g)=>{const o={};K.forEach(k=>o[k]=(f[k]||0)*g/100);return o};
+const sum=a=>{const o={};K.forEach(k=>o[k]=0);a.forEach(x=>K.forEach(k=>o[k]+=x[k]));return o};
+/* ---------- motor de cálculo ---------- */
+function age(nasc){if(!nasc)return null;return Math.floor((Date.now()-new Date(nasc))/31557600000)}
+function calc(){const P=S.prof,a=age(P.nasc),w=+P.peso,h=+P.alt;if(!a||!w||!h)return null;
+ const sx=P.sexo==='O'?P.eq:P.sexo,t=FAO[sx].find(x=>a<=x[0]),tmb=t[1]*w+t[2],naf=+P.naf||1.2,get=tmb*naf,o=OBJ[P.obj],adj=P.adj==null?o[0]:+P.adj,vet=get*(1+adj/100);
+ const pk=P.prot==null?o[1]:+P.prot,fp=P.fat==null?o[2]:+P.fat,p=pk*w,g=vet*fp/100/9,c=(vet-p*4-g*9)/4,im=w/Math.pow(h/100,2);
+ return{a,w,h,sx,tmb,eqf:`${t[1]} × ${w} + ${t[2]}`,naf,get,adj,vet,pk,fp,p,g,c,fi:vet/1000*14,im,cls:IMC.find(x=>im<x[0])[1],just:o[3],obj:P.obj,vetc:+P.vetc||null}}
+/* ---------- abas ---------- */
+const TABS=[['aval','Avaliação'],['diario','Diário'],['alim','Alimentos'],['metas','Metas'],['evol','Evolução'],['med','Medidas']];
+function nav(){$('nav').innerHTML=TABS.map(t=>`<button class="${tab===t[0]?'on':''}" onclick="tab='${t[0]}';go()">${t[1]}</button>`).join('')}
+function go(){nav();({aval:rAval,diario:rDiario,alim:rAlim,metas:rMetas,evol:rEvol,med:rMed})[tab]();window.scrollTo(0,0)}
+function P(){const p=S.prof;['sexo','eq','nasc','alt','peso','naf','vetc'].forEach(k=>{const e=$('f_'+k);if(e)p[k]=e.value});['adj','prot','fat'].forEach(k=>{const e=$('f_'+k);if(e&&e.value!=='')p[k]=+e.value;else if(e)p[k]=null});sv();res()}
+function setObj(v){S.prof.obj=v;S.prof.adj=S.prof.prot=S.prof.fat=null;sv();rAval()}
+function rAval(){const p=S.prof,o=OBJ[p.obj];
+$('app').innerHTML=`<div class="c"><h2>Cadastro e avaliação</h2><div class="g">
+<div><label>Sexo</label><select id="f_sexo" onchange="P();rAval()">${[['F','Feminino'],['M','Masculino'],['O','Outro']].map(x=>`<option value="${x[0]}" ${p.sexo===x[0]?'selected':''}>${x[1]}</option>`).join('')}</select></div>
+${p.sexo==='O'?`<div><label>Equação da TMB a usar</label><select id="f_eq" onchange="P()"><option value="F" ${p.eq==='F'?'selected':''}>Coeficientes femininos</option><option value="M" ${p.eq==='M'?'selected':''}>Coeficientes masculinos</option></select></div>`:''}
+<div><label>Data de nascimento</label><input type="date" id="f_nasc" value="${p.nasc}" oninput="P()"></div>
+<div><label>Peso (kg)</label><input type="number" step="0.1" id="f_peso" value="${p.peso}" oninput="P()"></div>
+<div><label>Altura (cm)</label><input type="number" id="f_alt" value="${p.alt}" oninput="P()"></div>
+<div><label>NAF</label><select id="f_naf" onchange="P()">${NAF.map(x=>`<option value="${x[1]}" ${+p.naf===x[1]?'selected':''}>${x[0]} — ${x[1]}</option>`).join('')}</select></div>
+<div><label>VET de consumo atual (kcal, opcional)</label><input type="number" id="f_vetc" value="${p.vetc}" oninput="P()"></div>
+<div><label>Objetivo</label><select onchange="setObj(this.value)">${Object.keys(OBJ).map(k=>`<option ${p.obj===k?'selected':''}>${k}</option>`).join('')}</select></div>
+<div><label>Ajuste usado no VET (%) — editável</label><input type="number" id="f_adj" value="${p.adj==null?o[0]:p.adj}" oninput="P()"></div>
+<div><label>Proteína (g/kg) — editável</label><input type="number" step="0.1" id="f_prot" value="${p.prot==null?o[1]:p.prot}" oninput="P()"></div>
+<div><label>Gordura (% do VET) — editável</label><input type="number" id="f_fat" value="${p.fat==null?o[2]:p.fat}" oninput="P()"></div></div></div>
+<div id="res"></div>
+<div class="c"><h2>Histórico dos cálculos</h2><div id="hist"></div></div>
+<div class="c mu"><b>Referências e metodologia.</b> TMB: equações FAO/WHO/UNU (2004), para ≥18 anos. GET = TMB × NAF. VET proposto = GET ± ajuste. IMC classificado pela OMS. Coeficientes, NAF e ajustes por objetivo são valores de referência digitados de memória: confira no relatório da FAO e valide com um nutricionista. Para idosos e menores de 18 anos use critérios específicos.</div>`;res();hist()}
+function res(){const r=calc(),e=$('res');if(!e)return;
+ if(!r){e.innerHTML='<div class="c mu">Preencha nascimento, peso e altura para ver os cálculos.</div>';return}
+ const kc=(x,m)=>n(x*m,0);
+ e.innerHTML=`<div class="c"><h2>Diagnóstico nutricional</h2><div class="big">IMC ${n(r.im)} kg/m² — ${r.cls}</div><div class="mu">Referência: OMS (adultos). Idade: ${r.a} anos.${r.a<18?' <span class="wa">Equação FAO adulta não se aplica a menores de 18.</span>':''}</div></div>
+<div class="c"><h2>Necessidade energética</h2><table>
+<tr><td>Equação</td><td class="r">FAO/WHO (2004), coef. ${r.sx==='M'?'masc.':'fem.'}</td></tr>
+<tr><td>TMB = ${r.eqf}</td><td class="r"><b>${n(r.tmb,0)} kcal</b></td></tr>
+<tr><td>NAF</td><td class="r">${n(r.naf,3)}</td></tr><tr><td>GET = TMB × NAF</td><td class="r"><b>${n(r.get,0)} kcal</b></td></tr>
+${r.vetc?`<tr><td>VET de consumo atual</td><td class="r">${n(r.vetc,0)} kcal (${n((r.vetc/r.get-1)*100,0)}% do GET)</td></tr>`:''}
+<tr><td>Objetivo</td><td class="r">${esc(r.obj)}</td></tr><tr><td>Ajuste utilizado</td><td class="r">${r.adj>0?'+':''}${n(r.adj,0)}%</td></tr>
+<tr><td><b>VET proposto</b></td><td class="r big">${n(r.vet,0)} kcal</td></tr></table>
+<p class="mu"><b>Justificativa:</b> ${esc(r.just)} O ajuste de ${r.adj>0?'+':''}${n(r.adj,0)}% foi aplicado sobre o GET de ${n(r.get,0)} kcal.</p></div>
+<div class="c"><h2>Distribuição de macronutrientes</h2><table><tr><th>Nutriente</th><th class="r">Meta</th><th class="r">kcal</th><th class="r">% VET</th></tr>
+<tr><td>Proteínas (${n(r.pk)} g/kg)</td><td class="r">${n(r.p,0)} g</td><td class="r">${kc(r.p,4)}</td><td class="r">${n(r.p*4/r.vet*100,0)}%</td></tr>
+<tr><td>Carboidratos (glicídios)</td><td class="r">${n(r.c,0)} g</td><td class="r">${kc(r.c,4)}</td><td class="r">${n(r.c*4/r.vet*100,0)}%</td></tr>
+<tr><td>Lipídios (gorduras)</td><td class="r">${n(r.g,0)} g</td><td class="r">${kc(r.g,9)}</td><td class="r">${n(r.fp,0)}%</td></tr>
+<tr><td>Fibras (14 g/1000 kcal)</td><td class="r">${n(r.fi,0)} g</td><td class="r">—</td><td class="r">—</td></tr></table>
+${r.c<0?'<p class="wa">Carboidrato negativo: reduza proteína ou gordura.</p>':''}
+<button class="b" onclick="saveH()" style="margin-top:8px">Salvar no histórico e atualizar metas</button></div>`}
+function saveH(){const r=calc();if(!r)return;S.hist.unshift({d:today(),eq:'FAO/WHO 2004',tmb:r.tmb,naf:r.naf,get:r.get,adj:r.adj,vet:r.vet,p:r.p,c:r.c,g:r.g,fi:r.fi,w:r.w,im:r.im,obj:r.obj});S.goalOv={};sv();hist()}
+function hist(){const e=$('hist');if(!e)return;e.innerHTML=S.hist.length?`<div class="tw"><table><tr><th>Data</th><th>Peso</th><th>TMB</th><th>NAF</th><th>GET</th><th>Ajuste</th><th>VET</th></tr>${S.hist.map((h,i)=>`<tr><td>${h.d}</td><td>${n(h.w)}</td><td>${n(h.tmb,0)}</td><td>${n(h.naf,2)}</td><td>${n(h.get,0)}</td><td>${h.adj>0?'+':''}${n(h.adj,0)}%</td><td>${n(h.vet,0)}</td></tr>`).join('')}</table></div><div class="mu">${S.hist.length} registro(s) · equação: ${S.hist[0].eq}</div>`:'<div class="mu">Nenhum cálculo salvo ainda.</div>'}
+/* ---------- metas ---------- */
+const GL=[['k','Energia','kcal'],['p','Proteína','g'],['c','Carboidratos','g'],['g','Gorduras','g'],['fi','Fibras','g']];
+function goals(){const h=S.hist[0],o={};GL.forEach(x=>{const a=h?(x[0]==='k'?h.vet:h[x[0]]):null;o[x[0]]=S.goalOv[x[0]]!=null?S.goalOv[x[0]]:a});return o}
+function rMetas(){const g=goals();$('app').innerHTML=`<div class="c"><h2>Metas pessoais</h2><div class="mu">Preenchidas automaticamente pela última avaliação salva. Pode editar.</div><table>${GL.map(x=>`<tr><td>${x[1]}</td><td><input type="number" value="${g[x[0]]==null?'':Math.round(g[x[0]])}" onchange="S.goalOv['${x[0]}']=this.value===''?null:+this.value;sv()" placeholder="—"></td><td>${x[2]}</td></tr>`).join('')}</table><button class="s" onclick="S.goalOv={};sv();rMetas()" style="margin-top:8px">Restaurar da avaliação</button></div>`}
+/* ---------- diário ---------- */
+const MEALS=['Café da manhã','Lanche da manhã','Almoço','Lanche da tarde','Jantar','Ceia'];
+function rDiario(){const E=S.diary.filter(e=>e.d===date);
+$('app').innerHTML=`<div class="c"><div class="row"><div><label>Data</label><input type="date" id="dd" value="${date}" onchange="date=this.value;rDiario()"></div>
+<div><label>Visualização</label><select onchange="view=this.value;rDiario()"><option value="ref" ${view==='ref'?'selected':''}>Por refeição</option><option value="dia" ${view==='dia'?'selected':''}>Total do dia</option></select></div></div></div>
+<div class="c"><h2>Adicionar alimento</h2><div class="g"><div><label>Refeição</label><select id="am">${MEALS.map(m=>`<option>${m}</option>`).join('')}</select></div>
+<div style="grid-column:span 2"><label>Alimento (digite para buscar)</label><input id="af" list="fl" oninput="meas()" autocomplete="off"><datalist id="fl">${foods().map(f=>`<option value="${esc(lab(f))}">`).join('')}</datalist></div>
+<div><label>Quantidade</label><input type="number" step="0.5" id="aq" value="1"></div><div><label>Medida</label><select id="ame"><option value="g">g / ml</option></select></div>
+<div id="abw" style="display:none"><label><input type="checkbox" id="ab" style="width:auto"> peso bruto (com casca/osso)</label></div></div>
+<button class="b" style="margin-top:10px" onclick="addE()">Adicionar</button></div><div id="dv"></div>`;dv()}
+function meas(){const f=foods().find(x=>lab(x)===$('af').value);$('ame').innerHTML=(f?f.m.map((m,i)=>`<option value="${i}">${esc(m.n)} (${m.g} g)</option>`).join(''):'')+'<option value="g">g / ml</option>';$('abw').style.display=f&&f.fc>1?'block':'none'}
+function addE(){const f=foods().find(x=>lab(x)===$('af').value),q=+$('aq').value;if(!f||!q)return alert('Escolha um alimento da lista e a quantidade.');
+ const me=$('ame').value;let g,l;if(me==='g'){g=q;l=n(q,0)+' g'}else{const m=f.m[+me];g=q*m.g;l=n(q,q%1?1:0)+' × '+m.n}
+ if($('ab').checked&&f.fc>1){g=g/f.fc;l+=' (bruto)'}
+ S.diary.push({id:Date.now(),d:date,m:$('am').value,f:f.id,g,l});sv();rDiario()}
+function delE(id){S.diary=S.diary.filter(e=>e.id!==id);sv();dv()}
+function dv(){const E=S.diary.filter(e=>e.d===date).map(e=>{const f=food(e.f);return{...e,fn:f?f.n:'(removido)',v:f?nut(f,e.g):sum([])}});const e=$('dv');if(!e)return;
+ if(view==='ref'){e.innerHTML=MEALS.map(m=>{const L=E.filter(x=>x.m===m);if(!L.length)return'';const t=sum(L.map(x=>x.v));
+ return`<div class="c"><h2>${m} — ${n(t.k,0)} kcal</h2><div class="mu">P ${n(t.p)} g · C ${n(t.c)} g · G ${n(t.g)} g · Fibras ${n(t.fi)} g</div>${L.map(x=>`<details><summary>${esc(x.l)} ${esc(x.fn)} — ${n(x.v.k,0)} kcal</summary><div class="mu">${n(x.g,0)} g · P ${n(x.v.p)} · C ${n(x.v.c)} · G ${n(x.v.g)} · Fib ${n(x.v.fi)} <button class="s" onclick="delE(${x.id})">remover</button></div></details>`).join('')}</div>`}).join('')||'<div class="c mu">Nada registrado neste dia.</div>';
+ const t=sum(E.map(x=>x.v));e.innerHTML+=`<div class="c"><b>Total do dia: ${n(t.k,0)} kcal</b> <span class="mu">· P ${n(t.p,0)} g · C ${n(t.c,0)} g · G ${n(t.g,0)} g</span></div>`}
+ else{const t=sum(E.map(x=>x.v)),G=goals();const NM=[['k','Energia (kcal)',0],['p','Proteína (g)',1],['c','Carboidrato (g)',1],['fi','Fibra (g)',1],['g','Gordura (g)',1],['na','Sódio (mg)',0],['ca','Cálcio (mg)',0],['kk','Potássio (mg)',0],['vc','Vitamina C (mg)',1],['co','Colesterol (mg)',0]];
+ e.innerHTML=`<div class="c"><h2>Total do dia</h2><table><tr><th>Nutriente</th><th class="r">Consumido</th><th class="r">Meta</th></tr>${NM.map(x=>{const mt=G[x[0]];return`<tr><td>${x[1]}</td><td class="r">${n(t[x[0]],x[2])}</td><td class="r">${mt?n(mt,0):'—'}</td></tr>${mt?`<tr><td colspan="3" style="padding:0 0 6px"><div class="bar"><i style="width:${Math.min(100,t[x[0]]/mt*100)}%"></i></div></td></tr>`:''}`}).join('')}</table><div class="mu">Sódio, cálcio, potássio, vit. C e colesterol só somam alimentos que têm esses dados.</div></div>`}}
+/* ---------- banco de alimentos ---------- */
+function rAlim(){$('app').innerHTML=`<div class="c"><h2>Banco de alimentos</h2><input placeholder="Buscar…" value="${esc(fq)}" oninput="fq=this.value;fl()"><div id="fl2"></div></div>
+<div class="c"><h2>Cadastrar alimento personalizado (por 100 g)</h2><div class="g">
+<div><label>Nome</label><input id="cn"></div><div><label>Estado</label><select id="cs">${['cru','cozido','assado','frito','grelhado','preparado','pronto'].map(x=>`<option>${x}</option>`).join('')}</select></div>
+${[['ck','kcal'],['cp','Proteína g'],['cc','Carboidrato g'],['cf','Fibra g'],['cg','Gordura g'],['cna','Sódio mg'],['cca','Cálcio mg'],['ckk','Potássio mg'],['cvc','Vit. C mg'],['cco','Colesterol mg'],['cfc','Fator de correção (bruto/comestível)']].map(x=>`<div><label>${x[1]}</label><input type="number" step="any" id="${x[0]}"></div>`).join('')}</div>
+<label style="margin-top:8px">Medidas caseiras (nome=gramas; separe com ;) — ex.: 1 unidade=100; colher de sopa=15</label><input id="cm"><button class="b" style="margin-top:10px" onclick="addF()">Salvar alimento</button>
+<div class="mu">Exemplo: Leite A — 67,82 kcal, 6,18 g prot., 0,5 g gord., 9,65 g carb. com medida “unidade=100” (já cadastrado abaixo).</div></div>`;fl()}
+function fl(){const q=fq.toLowerCase();$('fl2').innerHTML=foods().filter(f=>lab(f).toLowerCase().includes(q)).map(f=>`<details><summary>${esc(lab(f))} — ${n(f.k,0)} kcal</summary><div class="mu">${n(f.p)} g P · ${n(f.c)} g C · ${n(f.fi)} g Fib · ${n(f.g)} g G${f.na!=null?` · Na ${f.na} mg · Ca ${f.ca} · K ${f.kk} · VitC ${f.vc} · Col ${f.co}`:''}<br>Medidas: ${f.m.map(m=>esc(m.n)+' = '+m.g+' g').join('; ')||'—'}<br>Estado: ${esc(f.st)} · Fator de correção: ${f.fc||1}<br>Fonte: ${esc(f.src)} · incluído em ${f.dt}${f.oficial?'':` <button class="s" onclick="delF('${f.id}')">excluir</button>`}</div></details>`).join('')}
+function addF(){const v=id=>$(id).value===''?null:+$(id).value,nm=$('cn').value.trim();if(!nm||v('ck')==null)return alert('Informe nome e kcal.');
+ const m=$('cm').value.split(';').map(s=>s.split('=')).filter(a=>a.length===2&&+a[1]).map(a=>({n:a[0].trim(),g:+a[1]}));
+ S.custom.push({id:'u'+Date.now(),n:nm,st:$('cs').value,k:v('ck'),p:v('cp')||0,c:v('cc')||0,fi:v('cf')||0,g:v('cg')||0,na:v('cna'),ca:v('cca'),kk:v('ckk'),vc:v('cvc'),co:v('cco'),fc:v('cfc')||1,m,src:'Personalizado (cadastro manual)',dt:today()});sv();rAlim()}
+function delF(id){S.custom=S.custom.filter(f=>f.id!==id);sv();rAlim()}
+if(!S.custom.length&&!S.seeded){S.custom.push({id:'u0',n:'Leite A',st:'pronto',k:67.82,p:6.18,c:9.65,fi:0,g:0.5,na:null,ca:null,kk:null,vc:null,co:null,fc:1,m:[{n:'1 unidade',g:100}],src:'Personalizado (exemplo do usuário)',dt:today()});S.seeded=1;sv()}
+/* ---------- evolução ---------- */
+function rEvol(){const B=[...S.body].sort((a,b)=>a.d.localeCompare(b.d)),W=B.filter(b=>b.peso),h=+S.prof.alt;
+ let ch='';if(W.length>1){const ps=W.map(b=>b.peso),mn=Math.min(...ps)-1,mx=Math.max(...ps)+1,pt=W.map((b,i)=>`${20+i*(260/(W.length-1))},${100-(b.peso-mn)/(mx-mn)*85}`).join(' ');ch=`<svg viewBox="0 0 300 120" style="width:100%"><polyline fill="none" stroke="var(--ac)" stroke-width="2" points="${pt}"/>${pt.split(' ').map((p,i)=>`<circle cx="${p.split(',')[0]}" cy="${p.split(',')[1]}" r="3" fill="var(--ac)"/>`).join('')}<text x="2" y="14" font-size="9" fill="var(--mu)">${n(mx)}</text><text x="2" y="104" font-size="9" fill="var(--mu)">${n(mn)}</text></svg><div class="mu">${W.map(b=>n(b.peso)).join(' → ')} kg</div>`}
+ $('app').innerHTML=`<div class="c"><h2>Registrar medidas</h2><div class="g"><div><label>Data</label><input type="date" id="bd" value="${today()}"></div>${[['bp','Peso kg'],['bc','Cintura cm'],['bq','Quadril cm'],['bb','Braço cm'],['bx','Coxa cm'],['bg','% gordura']].map(x=>`<div><label>${x[1]}</label><input type="number" step="0.1" id="${x[0]}"></div>`).join('')}</div><button class="b" style="margin-top:10px" onclick="addB()">Salvar</button><div class="mu">Veja a aba Medidas para aprender a medir.</div></div>
+<div class="c"><h2>Peso</h2>${ch||'<div class="mu">Registre ao menos 2 pesos para ver o gráfico.</div>'}</div>
+<div class="c tw"><table><tr><th>Data</th><th>Peso</th><th>IMC</th><th>Cint.</th><th>Quad.</th><th>Braço</th><th>Coxa</th><th>%G</th><th></th></tr>${B.slice().reverse().map(b=>`<tr><td>${b.d}</td><td>${b.peso||'—'}</td><td>${b.peso&&h?n(b.peso/Math.pow(h/100,2)):'—'}</td><td>${b.cin||'—'}</td><td>${b.qua||'—'}</td><td>${b.bra||'—'}</td><td>${b.cox||'—'}</td><td>${b.gor||'—'}</td><td><button class="s" onclick="S.body=S.body.filter(x=>x.id!==${b.id});sv();rEvol()">x</button></td></tr>`).join('')}</table></div>`}
+function addB(){const v=id=>+$(id).value||null;S.body.push({id:Date.now(),d:$('bd').value,peso:v('bp'),cin:v('bc'),qua:v('bq'),bra:v('bb'),cox:v('bx'),gor:v('bg')});sv();rEvol()}
+/* ---------- manequim ---------- */
+let msx='F';
+function rMed(){const F=msx==='F',tx=F?'':'';
+ const ys=[[82,'Pescoço'],[130,F?'Busto/Tórax':'Tórax'],[175,'Cintura'],[200,'Abdome'],[235,'Quadril'],[140,'Braço'],[290,'Coxa'],[350,'Panturrilha']];
+ const body=F?`<polygon points="72,92 128,92 124,135 112,178 88,178 76,135" /><polygon points="86,178 114,178 134,235 66,235"/>`:`<polygon points="58,92 142,92 130,140 118,178 82,178 70,140"/><polygon points="82,178 118,178 126,235 74,235"/>`;
+ const lx=F?[50,150]:[44,156];
+ $('app').innerHTML=`<div class="c"><div class="row"><div><label>Manequim</label><select onchange="msx=this.value;rMed()"><option value="F" ${F?'selected':''}>Feminino</option><option value="M" ${F?'':'selected'}>Masculino</option></select></div></div>
+<svg viewBox="0 0 200 420" style="width:100%;max-width:300px;display:block;margin:10px auto" fill="var(--ac2)" stroke="var(--ac)" stroke-width="2"><circle cx="100" cy="55" r="22"/><rect x="92" y="74" width="16" height="20" stroke="none"/>${body}
+<line x1="${lx[0]+8}" y1="98" x2="${lx[0]-6}" y2="195" stroke-width="14" stroke-linecap="round"/><line x1="${lx[1]-8}" y1="98" x2="${lx[1]+6}" y2="195" stroke-width="14" stroke-linecap="round"/>
+<polygon points="${F?'66,235 99,235 95,400 80,400':'74,235 99,235 95,400 80,400'}"/><polygon points="${F?'134,235 101,235 105,400 120,400':'126,235 101,235 105,400 120,400'}"/>
+${ys.map((y,i)=>`<line x1="${i===5?lx[1]-10:30}" y1="${y[0]}" x2="${i===5?lx[1]+12:170}" y2="${y[0]}" stroke="var(--wa)" stroke-width="1" stroke-dasharray="3 3"/><circle cx="${i===5?186:182}" cy="${y[0]}" r="9" fill="var(--wa)" stroke="none"/><text x="${i===5?186:182}" y="${y[0]+4}" text-anchor="middle" font-size="11" fill="#fff" stroke="none">${i+1}</text>`).join('')}</svg></div>
+<div class="c"><h2>Como medir</h2><div class="mu">Fita métrica flexível, sem apertar a pele, paralela ao chão. Meça de manhã, em jejum, com pouca roupa, sempre no mesmo lado do corpo. Expire normalmente antes de ler.</div>
+<table><tr><td>Peso e altura</td><td>Descalço, balança em piso firme; altura encostado na parede, olhando para frente, calcanhares juntos.</td></tr>
+${[['1 Pescoço','Logo abaixo da laringe (“gogó”), fita levemente inclinada para a frente.'],['2 '+(F?'Busto/Tórax':'Tórax'),F?'Linha dos mamilos, fita passando pelas costas na altura das axilas.':'Linha dos mamilos, braços relaxados ao lado do corpo.'],['3 Cintura','Menor circunferência entre as costelas e o quadril, em pé e relaxado.'],['4 Abdome','Na altura do umbigo, sem encolher a barriga.'],['5 Quadril','Maior perímetro sobre os glúteos, pés juntos.'],['6 Braço','Braço relaxado; ponto médio entre o ombro (acrômio) e o cotovelo.'],['7 Coxa','Em pé, ponto médio entre a dobra da virilha e o joelho.'],['8 Panturrilha','Maior perímetro da panturrilha, sentado com o joelho a 90°.']].map(r=>`<tr><td>${r[0]}</td><td>${r[1]}</td></tr>`).join('')}</table>
+<div class="mu">Dica: faça 2 medidas por ponto e use a média. % de gordura só é confiável com bioimpedância calibrada ou dobras cutâneas feitas por profissional.</div></div>`}
+go();
+</script></body></html>
